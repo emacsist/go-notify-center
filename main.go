@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	mail.Send("929168233@qq.com", "Hello", "Hello World")
+	mail.Send([]string{"929168233@qq.com", "emacsist.yzy@gmail.com"}, "Hello", "Hello World")
 }
