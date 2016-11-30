@@ -8,44 +8,96 @@ import (
 
 	"bytes"
 
+	"fmt"
+
 	log "github.com/Sirupsen/logrus"
+	"github.com/emacsist/go-notify-center/code"
+	"github.com/emacsist/go-notify-center/message"
 )
 
 // Send : 发送 邮件
-func Send(toAddress []string, subject string, body string) error {
+func Send(mail message.Email) (result message.CallbackData) {
+	mail.From = MailConfig.UserName
+	err := checkMail(mail)
+	if err != nil {
+		result = message.BuildCallbackData(mail.MessageID, code.NoToAddress, code.NoToAddressMsg+"\n"+err.Error(), mail.CallbackQueue, nil, mail.To, mail.From)
+		return
+	}
 
 	c, err := smtpClient()
+	if err != nil {
+		result = message.BuildCallbackData(mail.MessageID, code.SMTPClientError, code.SMTPClientErrorInfo+"\n"+err.Error(), mail.CallbackQueue, nil, mail.To, mail.From)
+		return
+	}
 
-	for _, toAddr := range toAddress {
+	result.From = mail.From
+	result.CallbackQueue = mail.CallbackQueue
+	result.MessageID = mail.MessageID
+	for _, toAddr := range mail.To {
+		err = c.Reset()
+		if err != nil {
+			log.Errorf(err.Error())
+			result.ToError = append(result.ToError, toAddr)
+			result.ErrorCode = code.SMTPClientError
+			result.ErrorInfo = toAddr + "==>" + code.SMTPClientErrorInfo + " ==> " + err.Error() + "\n"
+			continue
+		}
 		// To && From
 		if err = c.Mail(MailConfig.UserName); err != nil {
-			log.Panic(err)
-			return err
+			log.Errorf(err.Error())
+			result.ToError = append(result.ToError, toAddr)
+			result.ErrorCode = code.SMTPClientError
+			result.ErrorInfo = toAddr + "==>" + code.SMTPClientErrorInfo + " ==> " + err.Error() + "\n"
+			continue
 		}
 
 		if err = c.Rcpt(toAddr); err != nil {
-			log.Panic(err)
-			return err
+			log.Errorf(err.Error())
+			result.ToError = append(result.ToError, toAddr)
+			result.ErrorCode = code.SMTPClientError
+			result.ErrorInfo = toAddr + "==>" + code.SMTPClientErrorInfo + " ==> " + err.Error() + "\n"
+			continue
 		}
 
 		// Data
 		w, err := c.Data()
 		if err != nil {
-			log.Panic(err)
-			return err
+			log.Errorf(err.Error())
+			result.ToError = append(result.ToError, toAddr)
+			result.ErrorCode = code.SMTPClientError
+			result.ErrorInfo = toAddr + "==>" + code.SMTPClientErrorInfo + " ==> " + err.Error() + "\n"
+			continue
 		}
-		_, err = w.Write(getMailMessage(toAddr, subject, body))
+		_, err = w.Write(getMailMessage(toAddr, mail.Subject, mail.Body))
 		if err != nil {
-			log.Panic(err)
-			return err
+			log.Errorf(err.Error())
+			result.ToError = append(result.ToError, toAddr)
+			result.ErrorCode = code.SMTPClientError
+			result.ErrorInfo = toAddr + "==>" + code.SMTPClientErrorInfo + " ==> " + err.Error() + "\n"
+			continue
 		}
 		err = w.Close()
 		if err != nil {
-			log.Panic(err)
-			return err
+			log.Errorf(err.Error())
+			result.ToError = append(result.ToError, toAddr)
+			result.ErrorCode = code.SMTPClientError
+			result.ErrorInfo = toAddr + "==>" + code.SMTPClientErrorInfo + " ==> " + err.Error() + "\n"
+			continue
 		}
+		result.ToOK = append(result.ToOK, toAddr)
+	}
+	if len(result.ErrorInfo) == 0 {
+		result.ErrorCode = code.OK
+		result.ErrorInfo = code.OKMsg
 	}
 	c.Quit()
+	return
+}
+
+func checkMail(mail message.Email) error {
+	if len(mail.To) == 0 {
+		return fmt.Errorf("MessageID %s no to address", mail.MessageID)
+	}
 	return nil
 }
 
@@ -88,13 +140,13 @@ func smtpClient() (*smtp.Client, error) {
 	// from the very beginning (no starttls)
 	conn, err := tls.Dial("tcp", host, tlsconfig)
 	if err != nil {
-		log.Panic(err)
+		log.Errorf(err.Error())
 		return nil, err
 	}
 
 	c, err := smtp.NewClient(conn, MailConfig.Host)
 	if err != nil {
-		log.Panic(err)
+		log.Errorf(err.Error())
 		return nil, err
 	}
 
@@ -102,7 +154,7 @@ func smtpClient() (*smtp.Client, error) {
 
 	// Auth
 	if err = c.Auth(auth); err != nil {
-		log.Panic(err)
+		log.Errorf(err.Error())
 		return nil, err
 	}
 	return c, nil
