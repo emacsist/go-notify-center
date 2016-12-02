@@ -64,13 +64,12 @@ func rabbitConnector(uri string) {
 			log.Errorf("Connecting to %v\n", uri)
 			conn = connectToRabbitMQ(uri)
 			conn.NotifyClose(rabbitCloseError)
-			listen()
+			listen(conn)
 		}
 	}
 }
 
-func listen() {
-	conn = connectToRabbitMQ(config.Configuration.Callback.AMQPURL)
+func listen(conn *amqp.Connection) {
 	ch, err := conn.Channel()
 	if err != nil {
 		panic("get connection channel error " + err.Error())
