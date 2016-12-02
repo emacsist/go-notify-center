@@ -12,12 +12,13 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/emacsist/go-notify-center/code"
+	"github.com/emacsist/go-notify-center/config"
 	"github.com/emacsist/go-notify-center/message"
 )
 
 // Send : 发送 邮件
 func Send(mail message.Email) (result message.CallbackData) {
-	mail.From = MailConfig.UserName
+	mail.From = config.Configuration.Email.UserName
 	err := checkMail(mail)
 	if err != nil {
 		result = message.BuildCallbackData(mail.MessageID, code.NoToAddress, code.NoToAddressMsg+"\n"+err.Error(), mail.CallbackQueue, nil, mail.To, mail.From)
@@ -43,7 +44,7 @@ func Send(mail message.Email) (result message.CallbackData) {
 			continue
 		}
 		// To && From
-		if err = c.Mail(MailConfig.UserName); err != nil {
+		if err = c.Mail(config.Configuration.Email.UserName); err != nil {
 			log.Errorf(err.Error())
 			result.ToError = append(result.ToError, toAddr)
 			result.ErrorCode = code.SMTPClientError
@@ -103,7 +104,7 @@ func checkMail(mail message.Email) error {
 
 // getMailMessage ： 构造邮件消息内容
 func getMailMessage(toAddress string, subject string, body string) []byte {
-	from := mail.Address{Address: MailConfig.UserName, Name: ""}
+	from := mail.Address{Address: config.Configuration.Email.UserName, Name: ""}
 	to := mail.Address{Address: toAddress, Name: toAddress}
 
 	// Setup headers
@@ -127,12 +128,12 @@ func getMailMessage(toAddress string, subject string, body string) []byte {
 
 // smtpClient : 相当于一个客户端（已经认证OK的，如果成功的话）
 func smtpClient() (*smtp.Client, error) {
-	host := MailConfig.Host + ":" + strconv.FormatInt(int64(MailConfig.Port), 10)
+	host := config.Configuration.Email.Host + ":" + strconv.FormatInt(int64(config.Configuration.Email.Port), 10)
 
 	// TLS config
 	tlsconfig := &tls.Config{
 		InsecureSkipVerify: true,
-		ServerName:         MailConfig.Host,
+		ServerName:         config.Configuration.Email.Host,
 	}
 
 	// Here is the key, you need to call tls.Dial instead of smtp.Dial
@@ -144,13 +145,13 @@ func smtpClient() (*smtp.Client, error) {
 		return nil, err
 	}
 
-	c, err := smtp.NewClient(conn, MailConfig.Host)
+	c, err := smtp.NewClient(conn, config.Configuration.Email.Host)
 	if err != nil {
 		log.Errorf(err.Error())
 		return nil, err
 	}
 
-	auth := smtp.PlainAuth("", MailConfig.UserName, MailConfig.Password, MailConfig.Host)
+	auth := smtp.PlainAuth("", config.Configuration.Email.UserName, config.Configuration.Email.Password, config.Configuration.Email.Host)
 
 	// Auth
 	if err = c.Auth(auth); err != nil {

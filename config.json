@@ -1,0 +1,13 @@
+{
+    "email": {
+        "username": "emacsist@qq.com",
+        "password": "xxxxx",
+        "port": 465,
+        "host": "smtp.qq.com"
+    },
+    "callback": {
+        "url": "amqp://guest:guest@localhost:5672/",
+        "mail.queue": "com.github.emacsist.notify.mail.queue",
+        "worker": 4
+    }
+}

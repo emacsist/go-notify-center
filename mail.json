@@ -1,6 +1,0 @@
-{
-    "username": "user@domain",
-    "password": "mail_password",
-    "port": 465,
-    "host": "smtp.qq.com"
-}
